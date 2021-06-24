@@ -229,7 +229,9 @@ typedef struct AVFrame {
      * NOTE: Except for hwaccel formats, pointers not needed by the format
      * MUST be set to NULL.
      */
-    const uint8_t **data;
+//    const uint8_t **data;
+    uint8_t *data[AV_NUM_DATA_POINTERS]; // ？为什么？改成这样就能播放
+
 
     /**
      * For video, size in bytes of each picture line.

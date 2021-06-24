@@ -6,7 +6,7 @@
 
 
 AudioChannel::AudioChannel(int channelId, JavaCallHelper *helper, AVCodecContext *avCodecContext,
-                           AVRational base) : BaseChannel(channelId, helper, avCodecContext, base) {
+                           const AVRational &base) : BaseChannel(channelId, helper, avCodecContext, base) {
     out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO); //2
     // 采样位
     out_sampleSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);

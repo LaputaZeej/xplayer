@@ -24,8 +24,7 @@ class AudioChannel : public BaseChannel {
 
 public:
     AudioChannel(int channelId, JavaCallHelper *helper, AVCodecContext *avCodecContext,
-                 const AVRational
-                 base);
+                 const AVRational &base);
 
     virtual ~AudioChannel();
 

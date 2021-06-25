@@ -17,7 +17,7 @@ add_library(
 #设置一个变量
 set(laputa_libs ${CMAKE_SOURCE_DIR}/${ANDROID_ABI})
 #-L：引入库查找路径
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${laputa_libs}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${laputa_libs} -ggdb")
 
 #引入头文件
 include_directories(include)

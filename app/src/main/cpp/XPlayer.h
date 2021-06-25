@@ -34,10 +34,14 @@ public:
 
     void start();
 
+    void stop();
+
+    void release();
+
 private:
     char *path;
     JavaCallHelper *javaCallHelper = 0;
-    pthread_t prepareTask;
+    pthread_t prepareTask=0;
     int64_t duration;
     VideoChannel *videoChannel = 0;
     int isPlaying = 0;

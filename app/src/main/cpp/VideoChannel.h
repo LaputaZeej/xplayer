@@ -7,19 +7,20 @@
 
 #include <android/native_window.h>
 #include "BaseChannel.h"
+#include "AudioChannel.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
 class VideoChannel : public BaseChannel {
-    friend void *doDecode_t(void *args);
+    //friend void *doDecode_t(void *args);
 
     friend void *doPlay_t(void *args);
 
 public:
     VideoChannel(int channelId, JavaCallHelper *helper, AVCodecContext *avCodecContext,
-                 const AVRational &base, int fps);
+                 const AVRational &base, double fps);
 
     virtual ~VideoChannel();
 
@@ -34,17 +35,18 @@ public:
 
 private:
     void realPlay();
+
     void onDraw(uint8_t *pString[4], int pInt[4], int width, int height);
 
 private:
     int fps;
-    int isPlaying = 0;
     pthread_t videoDecodeTask = 0;
     pthread_t videoPlayTask = 0;
     ANativeWindow *aNativeWindow = 0;
-    pthread_mutex_t windowMutex ;
+    pthread_mutex_t windowMutex;
 
-
+public:
+    AudioChannel *audioChannel = 0;
 };
 
 

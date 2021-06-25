@@ -42,6 +42,8 @@ private:
 
     int getData();
 
+    void releaseOpenSL();
+
 private:
     pthread_t audioDecodeTask, audioPlayTask;
     SwrContext* swrContext;
@@ -51,6 +53,12 @@ private:
     int out_channels;
     int out_sampleRate;
 
+    SLPlayItf bqPlayerInterface = NULL;
+    SLObjectItf bqPlayerObject = NULL;
+    SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue = NULL;
+    SLObjectItf outputMixObject = NULL;
+    SLObjectItf slObjectItf = NULL;
+    SLEngineItf engineItf = NULL;
 };
 
 

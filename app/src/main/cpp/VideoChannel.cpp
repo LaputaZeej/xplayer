@@ -2,16 +2,23 @@
 // Created by xpl on 2021/6/23.
 //
 
+
 #include "VideoChannel.h"
+#include <SLES/OpenSLES_Android.h>
 
 extern "C" {
 #include <libswscale/swscale.h>
 #include <libavutil/rational.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/time.h>
 }
 
+#define AV_SYNC_THRESHOLD_MIN 0.04
+#define AV_SYNC_THRESHOLD_MAX 0.1
+
+
 VideoChannel::VideoChannel(int channelId, JavaCallHelper *helper, AVCodecContext *avCodecContext,
-                           const AVRational &base, int fps) :
+                           const AVRational &base, double fps) :
         BaseChannel(channelId, helper, avCodecContext, base), fps(fps) {
     pthread_mutex_init(&windowMutex, 0);
 }
@@ -34,7 +41,7 @@ void *doPlay_t(void *args) {
 
 void VideoChannel::play() {
     isPlaying = 1;
-    setEnable(true);
+    setEnable(true); //
     // 解码 线程
     pthread_create(&videoDecodeTask, 0, doDecode_t, this);
     // 播放 线程
@@ -71,26 +78,37 @@ void VideoChannel::decode() {
         } else if (ret < 0) {
             break;
         }
-        // 放入带播放的队列
+
         LOGI("VideoChannel::decode 成功 ");
+        //todo 这里还有音频的，更好的实现是需要时再解码，只需要一个线程与一个待解码队列
+         while (frame_queue.size() > fps * 10 && isPlaying) {
+             av_usleep(1000 * 10);
+         }
+
+        // 放入带播放的队列
         frame_queue.enQueue(avFrame);
     }
+    releaseAvPacket(packet);
     LOGI("VideoChannel::decode 结束 ");
 }
 
 void VideoChannel::realPlay() {
-    LOGI("VideoChannel::播放 ");
+    LOGI("VideoChannel::realPlay ");
     // 用来缩放&格式转换
     SwsContext *swsContext = sws_getContext(
-            this->avCodecContext->width, avCodecContext->height,
+            avCodecContext->width,
+            avCodecContext->height,
             /*色彩空间格式*/
             avCodecContext->pix_fmt,
-            avCodecContext->width, avCodecContext->height,
+            avCodecContext->width,
+            avCodecContext->height,
             AV_PIX_FMT_RGBA, SWS_FAST_BILINEAR, 0, 0, 0);
     AVFrame *avFrame = 0;
+    double frame_delay = 1.0 / fps;
     int ret;
     uint8_t *data[4];
     int lineSize[4];
+    // 计算
     av_image_alloc(data, lineSize, avCodecContext->width, avCodecContext->height, AV_PIX_FMT_RGBA,
                    1);
     while (isPlaying) {
@@ -101,6 +119,33 @@ void VideoChannel::realPlay() {
         if (!ret) {
             continue;
         }
+
+        double extra_delay = (avFrame->repeat_pict * 1.0) / (2 * fps);
+        double delay = (extra_delay + frame_delay);
+
+        if (audioChannel) {
+//            avFrame->pts*av_q2d(time_base);
+            // best_effort_timestamp = pts ijkplayer
+            clock = avFrame->best_effort_timestamp * av_q2d(time_base);
+            double offset = clock - audioChannel->clock;
+            // 允许范围 AV_SYNC_THRESHOLD_MIN 0.04 ~ AV_SYNC_THRESHOLD_MAX 0.1
+            // https://github.com/bilibili/ijkplayer/blob/master/ijkmedia/ijkplayer/ff_ffplay_def.h
+
+            double sync = FFMAX(AV_SYNC_THRESHOLD_MIN, FFMIN(AV_SYNC_THRESHOLD_MAX, delay));
+            if (offset <= -sync) {
+                // 视频落后太多，让delay减少
+                delay = FFMAX(0, delay + offset);
+            } else if (offset > sync) {
+                // 视频快了
+                delay = delay + offset;
+            }
+            LOGI("      VideoChannel::realPlay V=%lf,A=%lf,A-V=%lf DELAY=%lf", clock,
+                 audioChannel->clock,
+                 -offset, delay);
+        }
+
+
+        av_usleep(delay * AV_TIME_BASE);
 
         // ANativeWindow 只能显示RGBA...
         // libswscale
@@ -127,9 +172,11 @@ void VideoChannel::realPlay() {
     }
     // av_free(&data[0]);
     isPlaying = 0;
-    releaseAvFrame(avFrame);
+    if(avFrame){
+        releaseAvFrame(avFrame);
+    }
     sws_freeContext(swsContext);
-    LOGI("VideoChannel::播放结束 ");
+    LOGI("VideoChannel::realPlay end");
 }
 
 
@@ -167,7 +214,7 @@ void VideoChannel::onDraw(uint8_t **data, int *lineSize, int width, int height) 
     for (int i = 0; i < buffer.height; ++i) {
         memcpy(dstData + i * dstSize, srcData + i * srcSize, srcSize);
     }
-    LOGI("VideoChannel::onDraw %p", aNativeWindow);
+    //LOGI("VideoChannel::onDraw %p", aNativeWindow);
     ANativeWindow_unlockAndPost(aNativeWindow);
     pthread_mutex_unlock(&windowMutex);
 }

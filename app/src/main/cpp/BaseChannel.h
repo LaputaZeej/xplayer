@@ -26,6 +26,7 @@ public:
 
 
     virtual ~BaseChannel() {
+        LOGI("~BaseChannel");
         if (avCodecContext) {
             avcodec_close(avCodecContext);
             avcodec_free_context(&avCodecContext);

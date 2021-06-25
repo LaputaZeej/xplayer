@@ -37,7 +37,7 @@ class XPlayer {
     }
 
     fun stop() {
-
+        nativeStop(nativePointer)
     }
 
     private external fun nativeInit(): Long
@@ -58,5 +58,12 @@ class XPlayer {
 
     private fun onProgress(progress: Int) {
         onProgressCallback(progress)
+    }
+
+    companion object {
+        // Used to load the 'native-lib' library on application startup.
+        init {
+            System.loadLibrary("native-lib")
+        }
     }
 }

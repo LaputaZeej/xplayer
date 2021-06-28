@@ -52,6 +52,11 @@ private:
 
     AudioChannel *audioChannel=0;
 
+public:
+    int aFormat;
+    int aWidth;
+    int aHeight;
+
 
 private:
     void realPrepare();

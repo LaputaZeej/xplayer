@@ -24,8 +24,9 @@ class XPlayer {
         nativeSetDataSource(nativePointer, path)
     }
 
-    fun setSurface(surface: Surface) {
+    fun setSurface(surface: Surface, format: Int, width: Int, height: Int) {
         nativeSetSurface(nativePointer, surface)
+//        nativeSetSurface2(nativePointer, surface,format,width,height)
     }
 
     fun prepare() {
@@ -46,6 +47,7 @@ class XPlayer {
     private external fun nativeStart(pointer: Long)
     private external fun nativeStop(pointer: Long)
     private external fun nativeSetSurface(pointer: Long, surface: Surface)
+    private external fun nativeSetSurface2(pointer: Long, surface: Surface, format: Int, width: Int, height: Int)
 
 
     private fun onError(code: Int) {

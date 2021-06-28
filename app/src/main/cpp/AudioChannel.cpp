@@ -100,7 +100,7 @@ void AudioChannel::decode() {
             break;
         }
         while (frame_queue.size() > 100 && isPlaying) {
-            av_usleep(1000 * 10);
+            av_usleep(1000 * 20);
         }
         frame_queue.enQueue(avFrame);
     }

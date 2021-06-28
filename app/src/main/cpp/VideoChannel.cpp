@@ -81,10 +81,9 @@ void VideoChannel::decode() {
 
         LOGI("VideoChannel::decode 成功 ");
         //todo 这里还有音频的，更好的实现是需要时再解码，只需要一个线程与一个待解码队列
-         while (frame_queue.size() > fps * 10 && isPlaying) {
-             av_usleep(1000 * 10);
-         }
-
+        while (frame_queue.size() > fps * 10 && isPlaying) {
+            av_usleep(1000 * 20);
+        }
         // 放入带播放的队列
         frame_queue.enQueue(avFrame);
     }
@@ -93,15 +92,19 @@ void VideoChannel::decode() {
 }
 
 void VideoChannel::realPlay() {
-    LOGI("VideoChannel::realPlay ");
+    LOGI("VideoChannel::realPlay aWidth=%d,aHeight=%d", aWidth, aHeight);
+//    int w_width = aWidth/*avCodecContext->width*/;
+//    int w_height = aHeight/*avCodecContext->height*/;
+    int w_width = avCodecContext->width;
+    int w_height = avCodecContext->height;
     // 用来缩放&格式转换
     SwsContext *swsContext = sws_getContext(
             avCodecContext->width,
             avCodecContext->height,
             /*色彩空间格式*/
             avCodecContext->pix_fmt,
-            avCodecContext->width,
-            avCodecContext->height,
+            w_width,
+            w_height,
             AV_PIX_FMT_RGBA, SWS_FAST_BILINEAR, 0, 0, 0);
     AVFrame *avFrame = 0;
     double frame_delay = 1.0 / fps;
@@ -109,7 +112,7 @@ void VideoChannel::realPlay() {
     uint8_t *data[4];
     int lineSize[4];
     // 计算
-    av_image_alloc(data, lineSize, avCodecContext->width, avCodecContext->height, AV_PIX_FMT_RGBA,
+    av_image_alloc(data, lineSize, w_width, w_height, AV_PIX_FMT_RGBA,
                    1);
     while (isPlaying) {
         ret = frame_queue.deQueue(avFrame);
@@ -122,7 +125,7 @@ void VideoChannel::realPlay() {
 
         double extra_delay = (avFrame->repeat_pict * 1.0) / (2 * fps);
         double delay = (extra_delay + frame_delay);
-
+        LOGI("      VideoChannel::realPlay DELAY=%lf", delay);
         if (audioChannel) {
 //            avFrame->pts*av_q2d(time_base);
             // best_effort_timestamp = pts ijkplayer
@@ -134,7 +137,7 @@ void VideoChannel::realPlay() {
             double sync = FFMAX(AV_SYNC_THRESHOLD_MIN, FFMIN(AV_SYNC_THRESHOLD_MAX, delay));
             if (offset <= -sync) {
                 // 视频落后太多，让delay减少
-                delay = FFMAX(0, delay + offset);
+                delay = FFMAX(0.0, delay + offset);
             } else if (offset > sync) {
                 // 视频快了
                 delay = delay + offset;
@@ -167,12 +170,12 @@ void VideoChannel::realPlay() {
                   data,
                   lineSize
         );
-        onDraw(data, lineSize, avCodecContext->width, avCodecContext->height);
+        onDraw(data, lineSize, w_width, w_height);
         releaseAvFrame(avFrame);
     }
     // av_free(&data[0]);
     isPlaying = 0;
-    if(avFrame){
+    if (avFrame) {
         releaseAvFrame(avFrame);
     }
     sws_freeContext(swsContext);

@@ -46,6 +46,11 @@ private:
     pthread_mutex_t windowMutex;
 
 public:
+    int aFormat;
+    int aWidth;
+    int aHeight;
+
+public:
     AudioChannel *audioChannel = 0;
 };
 

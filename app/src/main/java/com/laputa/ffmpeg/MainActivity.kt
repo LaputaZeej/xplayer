@@ -70,7 +70,7 @@ class MainActivity : AppCompatActivity() {
                 height: Int
             ) {
                 holder?.surface?.run {
-                    xPlayer?.setSurface(this)
+                    xPlayer?.setSurface(this,format,width,height)
                 }
             }
 

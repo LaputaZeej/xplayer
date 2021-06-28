@@ -45,7 +45,18 @@ JNIEXPORT void JNICALL
 Java_com_laputa_ffmpeg_XPlayer_nativeSetSurface(JNIEnv *env, jobject thiz, jlong pointer,
                                                 jobject surface) {
     XPlayer *xPlayer = reinterpret_cast<XPlayer *>(pointer);
-    ANativeWindow *window = ANativeWindow_fromSurface(env,surface);
+    ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
     xPlayer->setWindow(window);
 
+}extern "C"
+JNIEXPORT void JNICALL
+Java_com_laputa_ffmpeg_XPlayer_nativeSetSurface2(JNIEnv *env, jobject thiz, jlong pointer,
+                                                 jobject surface, jint format, jint width,
+                                                 jint height) {
+    XPlayer *xPlayer = reinterpret_cast<XPlayer *>(pointer);
+    ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
+    xPlayer->aFormat = format;
+    xPlayer->aWidth = width;
+    xPlayer->aHeight = height;
+    xPlayer->setWindow(window);
 }

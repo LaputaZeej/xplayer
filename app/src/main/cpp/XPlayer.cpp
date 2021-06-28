@@ -126,6 +126,9 @@ void XPlayer::realPrepare() {
             videoChannel = new VideoChannel(i, javaCallHelper, avCodecContext, avStream->time_base,
                                             fps);
             videoChannel->setWindow(aNativeWindow);
+            videoChannel->aWidth = aWidth;
+            videoChannel->aHeight = aHeight;
+            videoChannel->aFormat = aFormat;
         }
 
     }
@@ -191,7 +194,8 @@ void XPlayer::realStart() {
         } else if (ret == AVERROR_EOF) { // 文件结尾 end of file
             // 读取完毕不一定播放完毕
             if (videoChannel && videoChannel->pkt_queue.empty() && videoChannel->frame_queue.empty()
-                && audioChannel && audioChannel->pkt_queue.empty() &&audioChannel->frame_queue.empty()) {
+                && audioChannel && audioChannel->pkt_queue.empty() &&
+                audioChannel->frame_queue.empty()) {
                 // 播放完毕
                 LOGI("XPlayer::realStart 播放完毕");
                 break;
@@ -202,13 +206,14 @@ void XPlayer::realStart() {
         }
     }
     isPlaying = 0;
-    if (videoChannel) {
-        videoChannel->stop();
-    }
     if (audioChannel) {
         audioChannel->stop();
     }
+    if (videoChannel) {
+        videoChannel->stop();
+    }
 }
+
 
 void XPlayer::setWindow(ANativeWindow *window) {
     this->aNativeWindow = window;

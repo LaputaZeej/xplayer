@@ -23,6 +23,10 @@ XPlayer::~XPlayer() {
 }
 
 void XPlayer::setDataSource(const char *path_) {
+    if (path) {
+        delete[]path;
+        path = 0;
+    }
     // 深拷贝操作 不能直接赋值 可能在其他地方回收
     int size = strlen(path_);
 
@@ -32,6 +36,7 @@ void XPlayer::setDataSource(const char *path_) {
 //    memcpy(this->path, path_, size);
 
     // c++
+
     this->path = new char[size + 1];
     strcpy(this->path, path_);
 }
@@ -82,7 +87,7 @@ void XPlayer::realPrepare() {
     for (int i = 0; i < avFormatContext->nb_streams; ++i) {
         AVStream *avStream = avFormatContext->streams[i];
         // 解码信息
-        AVCodecParameters *avCodecParameters = avStream->codecpar;
+        const AVCodecParameters *avCodecParameters = avStream->codecpar;
         // 查找解码器
         AVCodec *avCodec = avcodec_find_decoder(
                 avCodecParameters->codec_id);     // ffmpeg -decoders 查看ffmpeg支持编码格式
@@ -104,7 +109,8 @@ void XPlayer::realPrepare() {
             javaCallHelper->onError(FFMPEG_OPEN_DECODER_FAIL, THREAD_CHILD);
             goto ERROR;
         }
-        AVMediaType avMediaType = avCodecParameters->codec_type;
+
+        AVMediaType avMediaType = avCodecContext->codec_type;
         if (avMediaType == AVMEDIA_TYPE_AUDIO) {
             avCodecContext->thread_count = 1;
             LOGI("      XPlayer::realPrepare 音频channel");
@@ -192,6 +198,10 @@ void XPlayer::realStart() {
                 }
             }
         } else if (ret == AVERROR_EOF) { // 文件结尾 end of file
+            if (packet) {
+                av_packet_free(&packet);
+                packet = 0;
+            }
             // 读取完毕不一定播放完毕
             if (videoChannel && videoChannel->pkt_queue.empty() && videoChannel->frame_queue.empty()
                 && audioChannel && audioChannel->pkt_queue.empty() &&
@@ -201,6 +211,10 @@ void XPlayer::realStart() {
                 break;
             }
         } else {
+            if (packet) {
+                av_packet_free(&packet);
+                packet = 0;
+            }
             LOGE("XPlayer::realStart 读取数据包失败，返回:%d 错误描述:%s", ret, av_err2str(ret));
             break;
         }

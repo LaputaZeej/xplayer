@@ -36,10 +36,10 @@ public:
 private:
     void realPlay();
 
-    void onDraw(uint8_t *pString[4], int pInt[4], int width, int height);
+    void onDraw(uint8_t *data[4], int linesize[4], int width, int height);
 
 private:
-    int fps;
+    double fps;
     pthread_t videoDecodeTask = 0;
     pthread_t videoPlayTask = 0;
     ANativeWindow *aNativeWindow = 0;

@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <string>
 #include "XPlayer.h"
+#include "JavaCallHelper.h"
 
 JavaVM *javaVm = 0;
 

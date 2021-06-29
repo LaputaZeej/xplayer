@@ -20,6 +20,8 @@ extern "C" {
 VideoChannel::VideoChannel(int channelId, JavaCallHelper *helper, AVCodecContext *avCodecContext,
                            const AVRational &base, double fps) :
         BaseChannel(channelId, helper, avCodecContext, base), fps(fps) {
+    LOGI("VideoChannel::VideoChannel p = %p,thread_count = %d", &avCodecContext,
+         avCodecContext->thread_count);
     pthread_mutex_init(&windowMutex, 0);
 }
 
@@ -49,6 +51,8 @@ void VideoChannel::play() {
 }
 
 void VideoChannel::decode() {
+    LOGI("VideoChannel::decode p = %p,thread_count = %d", &avCodecContext,
+         avCodecContext->thread_count);
     // 从队列中取包
     AVPacket *packet = 0;
     while (isPlaying) {
@@ -74,16 +78,22 @@ void VideoChannel::decode() {
         AVFrame *avFrame = av_frame_alloc();
         ret = avcodec_receive_frame(avCodecContext, avFrame);
         if (ret == AVERROR(EAGAIN)) { // 我还要,解码 i p b
+            if (avFrame) {
+                releaseAvFrame(avFrame);
+            }
             continue;
         } else if (ret < 0) {
+            if (avFrame) {
+                releaseAvFrame(avFrame);
+            }
             break;
         }
 
         LOGI("VideoChannel::decode 成功 ");
         //todo 这里还有音频的，更好的实现是需要时再解码，只需要一个线程与一个待解码队列
-        while (frame_queue.size() > fps * 10 && isPlaying) {
-            av_usleep(1000 * 20);
-        }
+//        while (frame_queue.size() > fps * 10 && isPlaying) {
+//            av_usleep(1000 * 20);
+//        }
         // 放入带播放的队列
         frame_queue.enQueue(avFrame);
     }
@@ -141,6 +151,12 @@ void VideoChannel::realPlay() {
             } else if (offset > sync) {
                 // 视频快了
                 delay = delay + offset;
+            }
+
+            if (offset <= -AV_SYNC_THRESHOLD_MAX) {
+                audioChannel->updateDelay(-offset * AV_TIME_BASE);
+            } else {
+                audioChannel->updateDelay(0);
             }
             LOGI("      VideoChannel::realPlay V=%lf,A=%lf,A-V=%lf DELAY=%lf", clock,
                  audioChannel->clock,

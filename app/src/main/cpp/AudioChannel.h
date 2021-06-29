@@ -46,7 +46,7 @@ private:
 
 private:
     pthread_t audioDecodeTask, audioPlayTask;
-    SwrContext* swrContext;
+    SwrContext *swrContext;
     uint8_t *buffer;
     int bufferCount;
     int out_sampleSize;
@@ -59,6 +59,14 @@ private:
     SLObjectItf outputMixObject = NULL;
     SLObjectItf slObjectItf = NULL;
     SLEngineItf engineItf = NULL;
+
+    pthread_mutex_t delay_mutex;
+
+public:
+    void updateDelay(double delay);
+
+private:
+    double delay = 0;
 };
 
 

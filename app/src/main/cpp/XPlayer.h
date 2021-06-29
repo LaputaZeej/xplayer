@@ -39,7 +39,7 @@ public:
     void release();
 
 private:
-    char *path;
+    char *path = 0;
     JavaCallHelper *javaCallHelper = 0;
     pthread_t prepareTask=0;
     int64_t duration;

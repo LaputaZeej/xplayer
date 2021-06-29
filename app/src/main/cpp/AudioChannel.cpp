@@ -4,13 +4,18 @@
 
 #include "AudioChannel.h"
 #include "Log.h"
-extern "C"{
+
+extern "C" {
 #include <libavutil/time.h>
 }
 
 AudioChannel::AudioChannel(int channelId, JavaCallHelper *helper, AVCodecContext *avCodecContext,
                            const AVRational &base) : BaseChannel(channelId, helper, avCodecContext,
                                                                  base) {
+
+    LOGI("AudioChannel::AudioChannel p = %p,_p=%p,thread_count = %d", &(this->avCodecContext),
+         &avCodecContext,
+         avCodecContext->thread_count);
     out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO); //2
     // 采样位
     out_sampleSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
@@ -19,11 +24,13 @@ AudioChannel::AudioChannel(int channelId, JavaCallHelper *helper, AVCodecContext
     bufferCount = out_sampleRate * out_sampleSize * out_channels;
     // 计算转换后数据的最大字节数
     buffer = static_cast<uint8_t *>(malloc(bufferCount));
+    pthread_mutex_init(&delay_mutex, 0);
 }
 
 AudioChannel::~AudioChannel() {
     free(buffer);
     buffer = 0;
+    pthread_mutex_destroy(&delay_mutex);
     LOGI("~AudioChannel");
 }
 
@@ -68,7 +75,6 @@ void AudioChannel::stop() {
     setEnable(0);
     pthread_join(audioDecodeTask, 0);
     pthread_join(audioPlayTask, 0);
-
     releaseOpenSL();
     if (swrContext) {
         swr_free(&swrContext);
@@ -77,15 +83,18 @@ void AudioChannel::stop() {
 }
 
 void AudioChannel::decode() {
-    LOGI("AudioChannel::decode ");
+    LOGI("AudioChannel::decode p = %p,thread_count = %d", &avCodecContext,
+         avCodecContext->thread_count);
     AVPacket *avPacket = 0;
     int ret = 0;
     while (isPlaying) {
+//        av_usleep(delay);
         ret = pkt_queue.deQueue(avPacket);
         if (!isPlaying) {
             break;
         }
         if (!ret) {
+            releaseAvPacket(avPacket);
             continue;
         }
         ret = avcodec_send_packet(avCodecContext, avPacket);
@@ -95,15 +104,19 @@ void AudioChannel::decode() {
         AVFrame *avFrame = av_frame_alloc();
         ret = avcodec_receive_frame(avCodecContext, avFrame);
         if (ret == AVERROR(EAGAIN)) {
+            releaseAvFrame(avFrame);
             continue;
         } else if (ret < 0) {
+            releaseAvFrame(avFrame);
             break;
         }
-        while (frame_queue.size() > 100 && isPlaying) {
-            av_usleep(1000 * 20);
-        }
+//        while (frame_queue.size() > 100 && isPlaying) {
+//            av_usleep(1000 * 20);
+//            // faster
+//        }
         frame_queue.enQueue(avFrame);
     }
+    releaseAvPacket(avPacket);
 }
 
 void AudioChannel::realDecode() {
@@ -116,21 +129,29 @@ void AudioChannel::realDecode() {
 void bqPlayerCallback(SLAndroidSimpleBufferQueueItf caller,
                       void *pContext) {
     AudioChannel *audioChannel = static_cast<AudioChannel *>(pContext);
+    //pthread_mutex_lock(&(audioChannel->delay_mutex));
     int dataSize = audioChannel->getData();
+
     if (dataSize > 0) {
         (*caller)->Enqueue(caller, audioChannel->buffer, dataSize);
     }
+    //pthread_mutex_lock(&(audioChannel->delay_mutex));
 }
 
 int AudioChannel::getData() {
     int dataSize = 0;
     AVFrame *avFrame = 0;
     while (isPlaying) {
+        av_usleep(this->delay);
         int ret = frame_queue.deQueue(avFrame);
         if (!isPlaying) {
+            releaseAvFrame(avFrame);
+            //this->delay = 0;
             break;
         }
         if (!ret) {
+            releaseAvFrame(avFrame);
+            //this->delay = 0;
             continue;
         }
         // 转换
@@ -140,6 +161,7 @@ int AudioChannel::getData() {
         // 音频的时钟
         clock = avFrame->pts * av_q2d(time_base);
         LOGI("AudioChannel::getData %d clock=%lf", nb, clock);
+        //this->delay = 0;
         break;
     }
     releaseAvFrame(avFrame);
@@ -253,6 +275,13 @@ void AudioChannel::releaseOpenSL() {
         slObjectItf = 0;
         engineItf = 0;
     }
+}
+
+void AudioChannel::updateDelay(double delay) {
+    pthread_mutex_lock(&delay_mutex);
+    this->delay = delay;
+    pthread_mutex_unlock(&delay_mutex);
+
 }
 
 
